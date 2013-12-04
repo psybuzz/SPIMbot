@@ -3,7 +3,7 @@
 # 	TEAM NAME: 
 #
 #	Partners:
-#		Erik Louy
+#		Erik Luo
 #		Micheal Li
 #		Erik Muro
 #
@@ -505,83 +505,95 @@ interrupt_dispatch:			# Interrupt:
 	mfc0 	$k0, $13		# Get Cause register, again
 	beq	$k0, 0, done		# handled all outstanding interrupts
 
+	and	$a0, $k0, SCAN_MASK	# is there a scanner interrupt?
+	bne	$a0, 0, scanner_interrupt
+
 	and	$a0, $k0, TIMER_MASK	# is there a timer interrupt?
 	bne	$a0, 0, timer_interrupt
+
+	and	$a0, $k0, BONK_MASK	# is there a bonk interrupt?
+	bne	$a0, 0, bonk_interrupt
 
 	li	$v0, PRINT_STRING	# Unhandled interrupt types
 	la	$a0, unhandled_str
 	syscall
 	j	done
 
+bonk_interrupt:
+#implement
+
+scanner_interrupt:
+#implement
+
 timer_interrupt:
-	sw	$a0, TIMER_ACKNOWLEDGE	# acknowledge_timer_interrupt()
+		sw	$a0, TIMER_ACKNOWLEDGE	# acknowledge_timer_interrupt()
 
-ti_loop:
-	lw	$a0, sorted_index
-	lw	$v0, index
-	bge	$a0, $v0, ti_align	# !(sorted_index < index)
+	ti_loop:
+		lw	$a0, sorted_index
+		lw	$v0, index
+		bge	$a0, $v0, ti_align	# !(sorted_index < index)
 
-	sw	$0, VELOCITY		# set_velocity(0)
-	lw	$a0, TIMER		# get_timer()
-	add	$a0, $a0, 400		# get_timer() + 400
-	sw	$a0, TIMER		# set_timer(...)
-	j	interrupt_dispatch	# return
+		sw	$0, VELOCITY		# set_velocity(0)
+		lw	$a0, TIMER		# get_timer()
+		add	$a0, $a0, 400		# get_timer() + 400
+		sw	$a0, TIMER		# set_timer(...)
+		j	interrupt_dispatch	# return
 
-ti_align:
-	mul	$k0, $v0, 4		# index * 4
-	lw	$a0, state
-	bne	$a0, 0, ti_align_y	# !(state == 0)
+	ti_align:
+		mul	$k0, $v0, 4		# index * 4
+		lw	$a0, state
+		bne	$a0, 0, ti_align_y	# !(state == 0)
 
-	lw	$a0, BOT_X		# current_x
-	lw	$k0, X($k0)		# target_x
-	sub	$k0, $k0, $a0		# diff
-	abs	$a0, $k0		# abs_diff
-	bge	$a0, 2, ti_face_x	# !(abs_diff < 2)
+		lw	$a0, BOT_X		# current_x
+		lw	$k0, X($k0)		# target_x
+		sub	$k0, $k0, $a0		# diff
+		abs	$a0, $k0		# abs_diff
+		bge	$a0, 2, ti_face_x	# !(abs_diff < 2)
 
-	li	$a0, 1
-	sw	$a0, state		# state = 1
-	j	ti_loop			# continue
+		li	$a0, 1
+		sw	$a0, state		# state = 1
+		j	ti_loop			# continue
 
-ti_face_x:
-	ble	$k0, 0, ti_face_left	# !(diff > 0)
-	li	$v0, 0			# new_angle = 0
-	j	ti_move			# break
+	ti_face_x:
+		ble	$k0, 0, ti_face_left	# !(diff > 0)
+		li	$v0, 0			# new_angle = 0
+		j	ti_move			# break
 
-ti_face_left:
-	li	$v0, 180		# new_angle = 180
-	j	ti_move			# break
+	ti_face_left:
+		li	$v0, 180		# new_angle = 180
+		j	ti_move			# break
 
-ti_align_y:
-	lw	$a0, BOT_Y		# current_y
-	lw	$k0, Y($k0)		# target_y
-	sub	$k0, $k0, $a0		# diff
-	abs	$a0, $k0		# abs_diff
-	bge	$a0, 2, ti_face_y	# !(abs_diff < 2)
+	ti_align_y:
+		lw	$a0, BOT_Y		# current_y
+		lw	$k0, Y($k0)		# target_y
+		sub	$k0, $k0, $a0		# diff
+		abs	$a0, $k0		# abs_diff
+		bge	$a0, 2, ti_face_y	# !(abs_diff < 2)
 
-	sw	$zero, state		# state = 0
-	add	$v0, $v0, 1		# index + 1
-	sw	$v0, index		# index = index + 1
-	j	ti_loop			# continue
+		sw	$zero, state		# state = 0
+		add	$v0, $v0, 1		# index + 1
+		sw	$v0, index		# index = index + 1
+		j	ti_loop			# continue
 
-ti_face_y:
-	ble	$k0, 0, ti_face_up	# !(diff > 0)
-	li	$v0, 90			# new_angle = 90
-	j	ti_move			# break
+	ti_face_y:
+		ble	$k0, 0, ti_face_up	# !(diff > 0)
+		li	$v0, 90			# new_angle = 90
+		j	ti_move			# break
 
-ti_face_up:
-	li	$v0, 270		# new_angle = 270
+	ti_face_up:
+		li	$v0, 270		# new_angle = 270
 
-ti_move:
-	sw	$v0, ANGLE		# new_angle
-	li	$v0, 1
-	sw	$v0, ANGLE_CONTROL	# set_absolute_angle(new_angle)
-	li	$v0, 10
-	sw	$v0, VELOCITY		# set_velocity(10)
-	lw	$v0, TIMER		# get_timer()
-	mul	$a0, $a0, 400		# abs_diff * 400
-	add	$v0, $v0, $a0		# get_timer() + abs_diff * 400
-	sw	$v0, TIMER		# set_timer(...)
-	j	interrupt_dispatch
+	ti_move:
+		sw	$v0, ANGLE		# new_angle
+		li	$v0, 1
+		sw	$v0, ANGLE_CONTROL	# set_absolute_angle(new_angle)
+		li	$v0, 10
+		sw	$v0, VELOCITY		# set_velocity(10)
+		lw	$v0, TIMER		# get_timer()
+		mul	$a0, $a0, 400		# abs_diff * 400
+		add	$v0, $v0, $a0		# get_timer() + abs_diff * 400
+		sw	$v0, TIMER		# set_timer(...)
+		j	interrupt_dispatch
 
 non_intrpt:				# was some non-interrupt
 	li	$v0, PRINT_STRING			
