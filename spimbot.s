@@ -521,9 +521,12 @@ interrupt_dispatch:			# Interrupt:
 
 bonk_interrupt:
 #implement
+	sw	$a0, BONK_ACKNOWLEDGE	# acknowledge_timer_interrupt()
 
 scanner_interrupt:
 #implement
+	sw	$a0, SCAN_ACKNOWLEDGE	# acknowledge_timer_interrupt()
+
 
 timer_interrupt:
 		sw	$a0, TIMER_ACKNOWLEDGE	# acknowledge_timer_interrupt()
